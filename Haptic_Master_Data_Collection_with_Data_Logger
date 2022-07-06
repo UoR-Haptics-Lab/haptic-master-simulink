@@ -1,0 +1,219 @@
+% Matlab program for Real-time data logger
+% ---------------------------------------------------------------------
+% File    : Haptic_Master_Data_Collection_with_Data_Logger.m
+%
+% Purpose : Matlab program to demonstrate the use of the Real-time
+%           data logger
+%
+% History:
+%  2022-07-06  EH    created
+% ---------------------------------------------------------------------
+
+% close all, clear all
+close all;
+clear all;
+
+%----------------------------------------------------------------------
+% Global Variables
+%----------------------------------------------------------------------
+hapticMasterDeviceHandle = -1;            % Handle to connected device
+hapticMasterIPAddress    = '192.168.0.25'; % Device IP Address
+retVal                   = 0;             % Return value of the haSendCommand
+inertia                  = 2.5;           % Mass of the EndEffector
+hmCalibrated             = 0;             % Is HM calibrated?
+ch                       = ' ';           % Key pressed in figure view
+
+%-------------------------------------------------------------------
+% Initialization
+%-------------------------------------------------------------------
+% Use getkey.m as a callback function from the current figure
+set( gcf, 'keypressfcn', 'LastKeyPressed = getkey;');
+LastKeyPressed = 0;
+
+% load HapticAPI2 library
+if ( ~libisloaded('HapticAPI2') )
+    loadlibrary( 'HapticAPI2' , 'HapticAPI2.h' );
+end
+
+disp('Opening device....');
+[hapticMasterDeviceHandle, hapticMasterIPAddress] = calllib( 'HapticAPI2', 'haDeviceOpen', hapticMasterIPAddress );
+
+if (hapticMasterDeviceHandle ~= -1)
+    disp ( ['Connected to device ' hapticMasterIPAddress ])
+    
+    %-------------------------------------------------------------------
+    % Check if HapticMASTER is position calibrated
+    %-------------------------------------------------------------------
+    [retVal, response] = haSendCommand( hapticMasterDeviceHandle, 'get position_calibrated' );
+    if (retVal ~= 0)
+        disp (['--- ERROR: ' response]);
+    end
+    
+    %-------------------------------------------------------------------
+    % If not, initialize HpaticMASTER first (search end stops)
+    %-------------------------------------------------------------------
+    if ( strcmp(response,'"false"') )
+        
+        [retVal, response] = haSendCommand( hapticMasterDeviceHandle, 'set state init' );
+        if (retVal ~= 0)
+            disp (['--- ERROR: ' response]);
+        end
+        
+        while (~hmCalibrated)
+            [retVal, response] = haSendCommand( hapticMasterDeviceHandle, 'get state' );
+            if (retVal ~= 0)
+                disp (['--- ERROR: ' response]);
+            end
+            
+            if ( strcmp(response,'"stop"') )
+                hmCalibrated = 1;
+            end
+        end
+    end
+    
+    %-------------------------------------------------------------------
+    % setup the real-time data logger
+    %-------------------------------------------------------------------
+    % Declare a real-time data logger
+    [dataLoggerDeviceHandle, hapticMasterIPAddress] = calllib( 'HapticAPI2', 'haDataLoggerOpen', hapticMasterIPAddress );
+    
+    matrixColumnCount = 0;
+    
+    % Add scoped variables to the data logger
+    
+    [retVal, dummy, matrixColumnCount] = calllib( 'HapticAPI2', 'haDataLoggerAddParameter', dataLoggerDeviceHandle, 'samplenr', matrixColumnCount );
+    [retVal, dummy, matrixColumnCount] = calllib( 'HapticAPI2', 'haDataLoggerAddParameter', dataLoggerDeviceHandle, 'sampletime', matrixColumnCount );
+    [retVal, dummy, matrixColumnCount] = calllib( 'HapticAPI2', 'haDataLoggerAddParameter', dataLoggerDeviceHandle, '#HapticMASTER.Model data.Cartesian.pos X', matrixColumnCount );
+    [retVal, dummy, matrixColumnCount] = calllib( 'HapticAPI2', 'haDataLoggerAddParameter', dataLoggerDeviceHandle, '#HapticMASTER.Model data.Cartesian.pos Y', matrixColumnCount );
+    [retVal, dummy, matrixColumnCount] = calllib( 'HapticAPI2', 'haDataLoggerAddParameter', dataLoggerDeviceHandle, '#HapticMASTER.Model data.Cartesian.pos Z', matrixColumnCount );
+    [retVal, dummy, matrixColumnCount] = calllib( 'HapticAPI2', 'haDataLoggerAddParameter', dataLoggerDeviceHandle, '#HapticMASTER.Model data.Cartesian.vel X', matrixColumnCount );
+    [retVal, dummy, matrixColumnCount] = calllib( 'HapticAPI2', 'haDataLoggerAddParameter', dataLoggerDeviceHandle, '#HapticMASTER.Model data.Cartesian.vel Y', matrixColumnCount );
+    [retVal, dummy, matrixColumnCount] = calllib( 'HapticAPI2', 'haDataLoggerAddParameter', dataLoggerDeviceHandle, '#HapticMASTER.Model data.Cartesian.vel Z', matrixColumnCount );
+    [retVal, dummy, matrixColumnCount] = calllib( 'HapticAPI2', 'haDataLoggerAddParameter', dataLoggerDeviceHandle, '#HapticMASTER.Model data.Cartesian.acc X', matrixColumnCount );
+    [retVal, dummy, matrixColumnCount] = calllib( 'HapticAPI2', 'haDataLoggerAddParameter', dataLoggerDeviceHandle, '#HapticMASTER.Model data.Cartesian.acc Y', matrixColumnCount );
+    [retVal, dummy, matrixColumnCount] = calllib( 'HapticAPI2', 'haDataLoggerAddParameter', dataLoggerDeviceHandle, '#HapticMASTER.Model data.Cartesian.acc Z', matrixColumnCount );
+    [retVal, dummy, matrixColumnCount] = calllib( 'HapticAPI2', 'haDataLoggerAddParameter', dataLoggerDeviceHandle, '#HapticMASTER.Measured force.Force Sensor Z.output(scaled)', matrixColumnCount );
+    
+    F=[];
+    % Start the data logger
+    [retVal] = calllib( 'HapticAPI2', 'haDataLoggerStart', dataLoggerDeviceHandle );
+    
+    %-------------------------------------------------------------------
+    % Create the haptic world (inertia, block, state force)
+    %-------------------------------------------------------------------
+    [retVal, response] = haSendCommand( hapticMasterDeviceHandle, ['set inertia ' num2str(inertia)] );
+    if (retVal ~= 0)
+        disp (['--- ERROR: ' response]);
+    end
+    
+    [retVal, response] = haSendCommand( hapticMasterDeviceHandle, 'set state force ' );
+    %[retVal, response] = haSendCommand( hapticMasterDeviceHandle, 'set state stop' );
+    if (retVal ~= 0)
+        disp (['--- ERROR: ' response]);
+    else
+        disp (response);
+    end
+    
+    outputVector = zeros(6000,1,'double');
+    completeMatrix = zeros(1,12,'double');
+    %-------------------------------------------------------------------
+    % Update EndEffector's position until ESC key is pressed
+    %-------------------------------------------------------------------
+    bShouldStop = 0;
+    
+    whileCount = 1;
+    while ( bShouldStop ~= 1 )
+        [retVal, outputVector] = calllib( 'HapticAPI2', 'haDataLoggerFlushVector', dataLoggerDeviceHandle, outputVector );
+        outputMatrix = reshape ( outputVector(1:retVal*matrixColumnCount), retVal, matrixColumnCount );
+        completeMatrix = vertcat ( completeMatrix, outputMatrix );
+        
+        display (outputMatrix (1,1));
+        [retVal, response] = haSendCommand( hapticMasterDeviceHandle, 'get measforce' );
+        F=[F;eval(response)];
+        if ( outputMatrix (1,1) >= 80000 )
+            bShouldStop = 1;
+        end
+        
+        whileCount = whileCount + 1;
+    end
+    
+    % Start the data logger
+    [retVal] = calllib( 'HapticAPI2', 'haDataLoggerStop', dataLoggerDeviceHandle );
+    
+    %---------------------------------------------
+    % Plot and save the data (My code)
+    %---------------------------------------------
+    
+    %disp (completeMatrix(:,7:9));
+    %plot (completeMatrix(:,7:9));
+    %    pos = completeMatrix(:,3:5);
+    %    vel = completeMatrix(:,6:8);
+    %
+    %    save velocity.mat vel
+    %    save position.mat pos
+    %    save force.mat F
+    
+    
+    % Plot positions
+    subplot(4,1,1)
+    hold on
+    grid on
+    plot(completeMatrix(:, 2)*1e-3, completeMatrix(:, 3:5))
+    
+    xlabel('Time [s]')
+    ylabel('Position [m]')
+    legend('x-axis', 'y-axis', 'z-axis')
+    
+    % Plot velocities
+    subplot(4,1,2)
+    hold on
+    grid on
+    plot(completeMatrix(:, 2)*1e-3, completeMatrix(:, 6:8))
+    
+    xlabel('Time [s]')
+    ylabel('Velocity [m/s]')
+    legend('x-axis', 'y-axis', 'z-axis')
+    
+     % Plot accelerations
+    subplot(4,1,3)
+    hold on
+    grid on
+    plot(completeMatrix(:, 2)*1e-3, completeMatrix(:, 9:11))
+    
+    xlabel('Time [s]')
+    ylabel('Acceleration [m/s^2]')
+    legend('x-axis', 'y-axis', 'z-axis')
+    
+    % Plot force
+    subplot(4,1,4)
+    hold on
+    grid on
+    plot(completeMatrix(:, 2)*1e-3, completeMatrix(:, 12))
+    
+    xlabel('Time [s]')
+    ylabel('Force [N]')
+    legend('x-axis')
+    
+   
+    %-------------------------------------------------------------------
+    % Terminate program execution
+    %-------------------------------------------------------------------
+    [retVal, response] = haSendCommand( hapticMasterDeviceHandle, 'remove all' );
+    if (retVal ~= 0)
+        disp (['--- ERROR: ' response]);
+    else
+        disp (response);
+    end
+    
+    [retVal, response] = haSendCommand( hapticMasterDeviceHandle, 'set state stop' );
+    if (retVal ~= 0)
+        disp (['--- ERROR: ' response]);
+    else
+        disp (response);
+    end
+    
+    retVal = calllib( 'HapticAPI2', 'haDeviceClose', hapticMasterDeviceHandle );
+else
+    disp ('Error, unable to connect to device')
+end
+save outputs_multiloop_demo_4.mat completeMatrix
