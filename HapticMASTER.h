@@ -214,7 +214,7 @@ int createMass(const long dev, const double mass)
     char tempString[100] = "";
     char response[300];
     
-    // set the inertia to the default value
+    // set the inertia
     sprintf(tempString, "set inertia %g", mass)
     if(haSendCommand(dev, , response))
         return -1;
@@ -270,17 +270,17 @@ int createDamper(const long dev, const char *damperName, const double dampingCoe
     char tempString[100] = "";
     char response[300];
     
-    // Create the spring
+    // Create the damper
     sprintf(tempString, "create damper %s", damperName);
     if(haSendCommand(dev, tempString, response))
         return -1;
     
-    // Set spring location
+    // Set damping coefficients
     sprintf(tempString, "set %s dampcoef [%g,%g,%g]", damperName, dampingCoef[0], dampingCoef[1], dampingCoef[2]);
     if(haSendCommand(dev, tempString, response))
         return -1;
     
-    // Enable the spring
+    // Enable the damper
     sprintf(tempString, "set %s enable", damperName);
     if(haSendCommand(dev, tempString, response))
         return -1;
