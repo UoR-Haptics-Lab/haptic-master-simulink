@@ -253,5 +253,28 @@ int createSpring(const long dev, const char *springName, const double pos[3], co
     return 0;
 }
 
+int createDamper(const long dev, const char *damperName, const double dampingCoef[3])
+{
+    char tempString[100] = "";
+    char response[300];
+    
+    // Create the spring 
+    sprintf(tempString, "create damper %s", damperName);
+    if(haSendCommand(dev, tempString, response))
+        return -1;
+    
+    // Set spring location
+    sprintf(tempString, "set %s dampcoef [%g,%g,%g]", damperName, dampingCoef[0], dampingCoef[1], dampingCoef[2]);
+    if(haSendCommand(dev, tempString, response))
+        return -1;
+    
+    // Enable the spring
+    sprintf(tempString, "set %s enable", damperName);
+    if(haSendCommand(dev, tempString, response))
+        return -1;
+    
+    return 0;
+}
+
 
 #endif
