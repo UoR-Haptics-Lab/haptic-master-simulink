@@ -177,7 +177,7 @@ static void mdlStart(SimStruct *S)
 static void mdlOutputs(SimStruct *S, int_T tid)
 {
     real_T *y = ssGetOutputPortRealSignal(S, 0);
-    y[0] =  1.0;
+    y[0] =  static_cast<real_T>(hapticMasterDeviceHandle);
 }
 
 
