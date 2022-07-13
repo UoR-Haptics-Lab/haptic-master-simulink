@@ -288,5 +288,25 @@ int createDamper(const long dev, const char *damperName, const double dampingCoe
     return 0;
 }
 
+int createBiasForce(const long dev, const char *biasForceName, const double biasForceDir[3])
+{
+    char tempString[100] = "";
+    char response[300];
+    
+    // Create the bias force
+    sprintf(tempString, "create biasforce %s", biasForceName);
+    if(haSendCommand(dev, tempString, response))
+        return -1;
+    
+    // Set the bias force direction
+    sprintf(tempString, "set %s force [%g,%g,%g]", biasForceName, biasForceDir[0], biasForceDir[1], biasForceDir[2]);
+    if(haSendCommand(dev, tempString, response))
+        return -1;
+    
+    // Enable the bias force
+    sprintf(tempString, "set %s enable", biasForceName);
+    if(haSendCommand(dev, tempString, response))
+        return -1;
+}
 
 #endif
