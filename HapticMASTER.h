@@ -216,37 +216,37 @@ int createSpring(const long dev, const char *springName, const double pos[3], co
     char response[300];
     
     // Create the spring 
-    sprintf(tempString, "create spring %s", *springName);
+    sprintf(tempString, "create spring %s", springName);
     if(haSendCommand(dev, tempString, response))
         return -1;
     
     // Set spring location
-    sprintf(tempString, "set mySpringX pos [%g,%g,%g]", pos[0], pos[1], pos[2]);
+    sprintf(tempString, "set %s pos [%g,%g,%g]", springName, pos[0], pos[1], pos[2]);
     if(haSendCommand(dev, tempString, response))
         return -1;
     
     // Set spring stiffness
-    sprintf(tempString, "set mySpringX stiffness %g", springConst);
+    sprintf(tempString, "set %s stiffness %g", springName, springConst);
     if(haSendCommand(dev, tempString, response))
         return -1;
     
     // Set spring direction
-    sprintf(tempString, "set mySpringX direction [%g,%g,%g]", dir[0], dir[1], dir[2]);
+    sprintf(tempString, "set %s direction [%g,%g,%g]", springName, dir[0], dir[1], dir[2]);
     if(haSendCommand(dev, tempString, response))
         return -1;
     
     // Set damping factor
-    sprintf(tempString, "set mySpringX dampfactor %g", dampFactor);
+    sprintf(tempString, "set %s dampfactor %g", springName, dampFactor);
     if(haSendCommand(dev, tempString, response))
         return -1;
     
     // Set maximum spring force
-    sprintf(tempString, "set mySpringX maxforce %g", maxForce);
+    sprintf(tempString, "set %s maxforce %g", springName, maxForce);
     if(haSendCommand(dev, tempString, response))
         return -1;
     
     // Enable the spring
-    sprintf(tempString, "create spring %s", *springName);
+    sprintf(tempString, "set %s enable", springName);
     if(haSendCommand(dev, tempString, response))
         return -1;
     
