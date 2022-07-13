@@ -19,8 +19,11 @@
  */
 #include "simstruc.h"
 #include "HapticAPI2.h"
+#include "HapticMASTER.h"
 
 #define IP_ADDRESS "192.168.0.25"
+long hapticMasterDeviceHandle = 0;
+char response[300];
 
 /* Error handling
  * --------------
@@ -79,9 +82,9 @@ static void mdlInitializeSizes(SimStruct *S)
 
     /* Specify the operating point save/restore compliance to be same as a 
      * built-in block */
-    ssSetOperatingPointCompliance(S, USE_DEFAULT_OPERATING_POINT);
+//     ssSetOperatingPointCompliance(S, USE_DEFAULT_OPERATING_POINT);
 
-    ssSetRuntimeThreadSafetyCompliance(S, RUNTIME_THREAD_SAFETY_COMPLIANCE_TRUE);
+//     ssSetRuntimeThreadSafetyCompliance(S, RUNTIME_THREAD_SAFETY_COMPLIANCE_TRUE);
     ssSetOptions(S, SS_OPTION_EXCEPTION_FREE_CODE);
 }
 
@@ -95,7 +98,7 @@ static void mdlInitializeSizes(SimStruct *S)
  */
 static void mdlInitializeSampleTimes(SimStruct *S)
 {
-    ssSetSampleTime(S, 0, CONTINUOUS_SAMPLE_TIME);
+    ssSetSampleTime(S, 0, INHERITED_SAMPLE_TIME);
     ssSetOffsetTime(S, 0, 0.0);
 
 }
@@ -132,8 +135,11 @@ static void mdlInitializeSampleTimes(SimStruct *S)
    */
   static void mdlStart(SimStruct *S)
   {
-      long dev = 0;
-      dev = haDeviceOpen(IP_ADDRESS);
+      // Open device
+      hapticMasterDeviceHandle = haDeviceOpen(IP_ADDRESS);
+      
+      // Initialize HapticMaster
+      InitializeDevice(hapticMasterDeviceHandle);
   }
 #endif /*  MDL_START */
 
@@ -146,14 +152,13 @@ static void mdlInitializeSampleTimes(SimStruct *S)
  */
 static void mdlOutputs(SimStruct *S, int_T tid)
 {
-    const real_T *u = (const real_T*) ssGetInputPortSignal(S,0);
-    real_T       *y = ssGetOutputPortSignal(S,0);
-    y[0] = u[0];
+    real_T *y = ssGetOutputPortRealSignal(S, 0);
+    y[0] =  static_cast<real_T>(hapticMasterDeviceHandle);
 }
 
 
 
-#define MDL_UPDATE  /* Change to #undef to remove function */
+#undef MDL_UPDATE  /* Change to #undef to remove function */
 #if defined(MDL_UPDATE)
   /* Function: mdlUpdate ======================================================
    * Abstract:
@@ -169,7 +174,7 @@ static void mdlOutputs(SimStruct *S, int_T tid)
 
 
 
-#define MDL_DERIVATIVES  /* Change to #undef to remove function */
+#undef MDL_DERIVATIVES  /* Change to #undef to remove function */
 #if defined(MDL_DERIVATIVES)
   /* Function: mdlDerivatives =================================================
    * Abstract:
@@ -191,6 +196,10 @@ static void mdlOutputs(SimStruct *S, int_T tid)
  */
 static void mdlTerminate(SimStruct *S)
 {
+    haSendCommand(hapticMasterDeviceHandle, "remove all", response);
+    haSendCommand(hapticMasterDeviceHandle, "set state stop", response);
+    
+    haDeviceClose(hapticMasterDeviceHandle);
 }
 
 
