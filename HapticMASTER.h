@@ -215,8 +215,8 @@ int createMass(const long dev, const double mass)
     char response[300];
     
     // set the inertia
-    sprintf(tempString, "set inertia %g", mass)
-    if(haSendCommand(dev, , response))
+    sprintf(tempString, "set inertia %g", mass);
+    if(haSendCommand(dev, tempString, response))
         return -1;
     
     return 0;
@@ -305,6 +305,17 @@ int createBiasForce(const long dev, const char *biasForceName, const double bias
     
     // Enable the bias force
     sprintf(tempString, "set %s enable", biasForceName);
+    if(haSendCommand(dev, tempString, response))
+        return -1;
+}
+
+int setSpringLocation(const long dev, const char *springName, const double pos[3])
+{
+    char tempString[100] = "";
+    char response[300];
+    
+    // Set spring location
+    sprintf(tempString, "set %s pos [%g,%g,%g]", springName, pos[0], pos[1], pos[2]);
     if(haSendCommand(dev, tempString, response))
         return -1;
 }
